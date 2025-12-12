@@ -44,8 +44,8 @@ export async function GET(req: Request) {
       months,
       rows: res.rows,
       merchants: merchantRes.rows
-  .map((r: { merchant_name: string | null }) => r.merchant_name)
-  .filter((x): x is string => Boolean(x)),
+        .map((r: { merchant_name: string | null }) => r.merchant_name)
+        .filter((x: string | null): x is string => Boolean(x)),
     });
   } catch (err: any) {
     console.error(err);
