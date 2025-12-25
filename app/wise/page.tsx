@@ -23,27 +23,46 @@ type WiseChart = {
   merchants: string[];
 };
 
-function getBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
-  );
-}
-
 export default async function WisePage() {
-  const baseUrl = getBaseUrl();
-
-  const [rowsRes, summary, chart] = await Promise.all([
+  const [rowsRes, summaryRes, chartRes] = await Promise.all([
     query<WiseRow>(
       "SELECT id, merchant_name, payment_date, amount_gbp FROM wise_payments ORDER BY payment_date DESC NULLS LAST, id DESC LIMIT 200"
     ),
-    fetch(`${baseUrl}/api/wise-summary`, { cache: "no-store" }).then((r) =>
-      r.ok ? (r.json() as Promise<WiseSummary>) : null
+
+    // Summary: all-time totals
+    query<{ total_gbp: string | null; payments: number }>(
+      `SELECT COALESCE(SUM(amount_gbp),0)::text AS total_gbp, COUNT(*)::int AS payments
+       FROM wise_payments`
     ),
-    fetch(`${baseUrl}/api/wise-chart?months=12`, { cache: "no-store" }).then((r) =>
-      r.ok ? (r.json() as Promise<WiseChart>) : null
+
+    // Chart: last 12 months totals by month + merchant
+    query<{ month: string; merchant_name: string | null; total_gbp: string | null }>(
+      `SELECT
+         to_char(date_trunc('month', payment_date::date), 'YYYY-MM') AS month,
+         merchant_name,
+         SUM(amount_gbp)::text AS total_gbp
+       FROM wise_payments
+       WHERE payment_date >= (current_date - interval '12 months')
+       GROUP BY 1, 2
+       ORDER BY 1 ASC`
     ),
   ]);
+
+  const summary: WiseSummary = {
+    ok: true,
+    months: 6,
+    all_time: summaryRes.rows[0] ?? { total_gbp: "0", payments: 0 },
+    monthly: [],
+  };
+
+  const chart: WiseChart = {
+    ok: true,
+    months: 12,
+    rows: chartRes.rows,
+    merchants: Array.from(
+      new Set(chartRes.rows.map((r) => r.merchant_name).filter(Boolean))
+    ) as string[],
+  };
 
   return <WiseDashboard rows={rowsRes.rows} summary={summary} chart={chart} />;
 }
