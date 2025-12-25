@@ -13,6 +13,6 @@ jobs:
       - name: Call /api/save-wise-sync
         run: |
           echo "Calling sync endpoint..."
-          curl -sS -X GET "${{ secrets.SYNC_URL }}" | tee response.json
+          curl -sS -X GET "${{ secrets.SYNC_URL }}" -H "x-sync-token: ${{ secrets.SYNC_TOKEN }}" | tee response.json
           echo ""
           echo "Done."
