@@ -68,7 +68,11 @@ export async function GET(req: Request) {
     if (lastDate) {
       const d = lastDate instanceof Date ? lastDate : new Date(lastDate);
 
-      after = ` after:${d.toISOString().slice(0, 10).replace(/-/g, "/")}`;
+      // subtract 1 day to avoid Gmail "after:" edge cases (date-only filter)
+        const d2 = new Date(d);
+        d2.setDate(d2.getDate() - 1);
+        after = ` after:${d2.toISOString().slice(0, 10).replace(/-/g, "/")}`;
+
     }
 
     const q = `from:noreply@wise.com subject:Direct Debit paid to${after}`;
