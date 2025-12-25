@@ -45,6 +45,15 @@ function extractAmountGBP(text: string): number | null {
 
 export async function GET(req: Request) {
   try {
+    // ✅ Step 4: require token (only if SYNC_TOKEN is set)
+    const expected = process.env.SYNC_TOKEN;
+    if (expected) {
+      const got = req.headers.get("x-sync-token");
+      if (got !== expected) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+    }
+
     const gmail = await getGmailClient();
 
     // Find the most recent payment date we have saved
@@ -56,16 +65,11 @@ export async function GET(req: Request) {
     // Gmail search supports "after:YYYY/MM/DD" (date-only)
     let after = "";
 
-if (lastDate) {
-  const d =
-    lastDate instanceof Date
-      ? lastDate
-      : new Date(lastDate);
+    if (lastDate) {
+      const d = lastDate instanceof Date ? lastDate : new Date(lastDate);
 
-  after = ` after:${d.toISOString().slice(0, 10).replace(/-/g, "/")}`;
-}
-
-
+      after = ` after:${d.toISOString().slice(0, 10).replace(/-/g, "/")}`;
+    }
 
     const q = `from:noreply@wise.com subject:Direct Debit paid to${after}`;
 
@@ -140,9 +144,6 @@ if (lastDate) {
     });
   } catch (err: any) {
     console.error(err);
-    return NextResponse.json(
-      { ok: false, error: err.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
